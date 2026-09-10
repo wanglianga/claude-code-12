@@ -1,0 +1,11 @@
+html, body, #app { margin: 0; padding: 0; height: 100%; font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif; }
+.page { padding: 16px; }
+.page-card { margin-bottom: 16px; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
+.muted { color: #909399; font-size: 12px; }
+.danger-tags .el-tag { margin-right: 4px; }
+.chain-panel { padding: 8px 0 0; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-card { border-radius: 8px; padding: 14px 16px; color: #fff; min-height: 64px; }
+.stat-card .num { font-size: 26px; font-weight: 700; line-height: 1.2; }
+.stat-card .label { font-size: 13px; opacity: .9; }

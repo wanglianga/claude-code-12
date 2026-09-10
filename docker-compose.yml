@@ -1,0 +1,61 @@
+# 高校实验室危险试剂领用与废液回收平台
+# 项目名由环境变量 COMPOSE_PROJECT_NAME 固定，请勿在此覆盖
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-labuser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-labpass123}
+      POSTGRES_DB: ${DB_NAME:-labreagent}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-labuser} -d ${DB_NAME:-labreagent}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - internal
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-labuser}
+      DB_PASSWORD: ${DB_PASSWORD:-labpass123}
+      DB_NAME: ${DB_NAME:-labreagent}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      SEED_DEMO: ${SEED_DEMO:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # 仅应用入口（前端 nginx）发布到宿主；db/backend 不暴露
+      - "${CC_PUBLISH_PORT}:8080"
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
