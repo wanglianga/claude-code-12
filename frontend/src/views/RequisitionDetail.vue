@@ -1,6 +1,14 @@
 <template>
   <div class="page" v-loading="loading">
     <template v-if="chain">
+      <el-alert v-if="req.sourceType === 'BORROW'" type="warning" :closable="false" class="page-card" show-icon>
+        <template #title>
+          本单为跨课题组借用自动生成的「实际使用单」，试剂借自他组暂存；
+          借用审批、转移路线与交接请在
+          <el-link type="primary" :underline="false" @click="$router.push(`/borrows/${req.borrowId}`)">借用单详情</el-link>
+          查看。产生废液时责任仍拆回本课题组（{{ req.researchGroup }}）。
+        </template>
+      </el-alert>
       <el-card class="page-card">
         <div class="toolbar">
           <div>

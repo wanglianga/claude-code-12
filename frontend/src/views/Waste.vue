@@ -17,6 +17,17 @@
         <el-table-column label="数量" width="80"><template #default="{ row }">{{ row.amount }}ml</template></el-table-column>
         <el-table-column prop="barrelCode" label="废液桶" width="110" />
         <el-table-column prop="containerLabel" label="容器标签" min-width="130" />
+        <el-table-column label="废液责任课题组" min-width="150">
+          <template #default="{ row }">
+            <el-tag size="small" type="warning">{{ row.responsibleGroupName || row.projectName }}</el-tag>
+            <div v-if="row.sourceType === 'BORROW'" class="muted">借自：{{ row.sourceGroupName }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="来源" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.sourceType === 'BORROW' ? 'warning' : 'info'">{{ row.sourceType === 'BORROW' ? '跨组借用' : '正常领用' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="storedByName" label="经办" width="80" />
         <el-table-column label="状态" width="90">
           <template #default="{ row }">
@@ -28,9 +39,10 @@
         <el-table-column label="入库时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="链路" width="80">
+        <el-table-column label="链路" width="90">
           <template #default="{ row }">
-            <el-button size="small" link type="primary" @click="$router.push(`/requisitions/${row.requisitionId}`)">查看</el-button>
+            <el-button size="small" link type="primary"
+              @click="row.sourceType === 'BORROW' && row.borrowId ? $router.push(`/borrows/${row.borrowId}`) : $router.push(`/requisitions/${row.requisitionId}`)">查看</el-button>
           </template>
         </el-table-column>
       </el-table>

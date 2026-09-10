@@ -48,6 +48,8 @@ const ALL_MENUS = [
   { path: '/requisitions', title: '申请单', icon: 'Document', roles: ['student', 'advisor', 'safety_officer', 'warehouse_manager', 'college_admin', 'admin'] },
   { path: '/requisitions/new', title: '新建领用申请', icon: 'EditPen', roles: ['student'] },
   { path: '/approvals', title: '审批中心', icon: 'Stamp', roles: ['advisor', 'safety_officer'] },
+  { path: '/borrows', title: '试剂借用', icon: 'Switch', roles: ['student', 'advisor', 'safety_officer', 'warehouse_manager', 'college_admin', 'admin'] },
+  { path: '/borrows/new', title: '发起跨组借用', icon: 'Promotion', roles: ['student'] },
   { path: '/inventory', title: '库存管理', icon: 'Box', roles: ['warehouse_manager', 'safety_officer', 'admin'] },
   { path: '/waste', title: '废液管理', icon: 'Delete', roles: ['warehouse_manager', 'safety_officer', 'college_admin', 'admin'] },
   { path: '/transfer', title: '转运单', icon: 'Van', roles: ['warehouse_manager', 'college_admin', 'safety_officer', 'admin'] },

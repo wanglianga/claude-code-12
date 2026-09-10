@@ -3,6 +3,7 @@ import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
   Anomaly,
+  BorrowRequest,
   DispenseRecord,
   Requisition,
   TransferManifest,
@@ -10,7 +11,7 @@ import {
   WasteRecord,
 } from '../common/entities';
 import { CurrentUser } from '../common/auth';
-import { ManifestStatus, ReqStatus, Role, WasteStatus } from '../common/enums';
+import { BorrowStatus, ManifestStatus, ReqStatus, Role, WasteStatus } from '../common/enums';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -21,19 +22,27 @@ export class DashboardController {
     @InjectRepository(WasteRecord) private wasteRecords: Repository<WasteRecord>,
     @InjectRepository(TransferManifest) private manifests: Repository<TransferManifest>,
     @InjectRepository(DispenseRecord) private dispenses: Repository<DispenseRecord>,
+    @InjectRepository(BorrowRequest) private borrows: Repository<BorrowRequest>,
   ) {}
 
   // 各角色待办/概览计数
   @Get('summary')
   async summary(@CurrentUser() me: any) {
-    const [all, openAnomalies, barrels, pendingManifests, storedWaste] = await Promise.all([
+    const [all, openAnomalies, barrels, pendingManifests, storedWaste, borrowAll] = await Promise.all([
       this.reqs.find(),
       this.anomalies.count({ where: { status: 'OPEN' } }),
       this.barrels.find(),
       this.manifests.count({ where: { status: ManifestStatus.PENDING_REVIEW } }),
       this.wasteRecords.count({ where: { status: WasteStatus.STORED } }),
+      this.borrows.find(),
     ]);
     const count = (fn: (r: Requisition) => boolean) => all.filter(fn).length;
+    const bCount = (fn: (b: BorrowRequest) => boolean) => borrowAll.filter(fn).length;
+    const pendingBorrowAdvisor = bCount(
+      (b) =>
+        (b.status === BorrowStatus.PENDING_BORROWER_ADVISOR && (me.role !== Role.ADVISOR || b.borrowerAdvisorId === me.sub)) ||
+        (b.status === BorrowStatus.PENDING_LENDER_ADVISOR && (me.role !== Role.ADVISOR || b.lenderAdvisorId === me.sub)),
+    );
     return {
       role: me.role,
       myTotal: count((r) => r.studentId === me.sub),
@@ -51,6 +60,14 @@ export class DashboardController {
       barrelsWarn: barrels.filter((b) => b.status !== '在用').length,
       storedWasteRecords: storedWaste,
       pendingManifests,
+      // 跨课题组借用待办
+      myBorrow: bCount((b) => b.borrowerStudentId === me.sub),
+      pendingBorrowAdvisor,
+      pendingBorrowSafety: bCount((b) => b.status === BorrowStatus.PENDING_SAFETY),
+      pendingBorrowDispense: bCount((b) => b.status === BorrowStatus.DISPENSE_READY),
+      pendingBorrowHandover: bCount((b) => b.status === BorrowStatus.TRANSFER_PLANNED),
+      pendingBorrowReview: bCount((b) => [BorrowStatus.USAGE_LOGGED, BorrowStatus.WASTE_ASSIGNED].includes(b.status as BorrowStatus)),
+      borrowClosed: bCount((b) => b.status === BorrowStatus.CLOSED),
     };
   }
 
@@ -126,7 +143,7 @@ export class DashboardController {
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Requisition, Anomaly, WasteBarrel, WasteRecord, TransferManifest, DispenseRecord])],
+  imports: [TypeOrmModule.forFeature([Requisition, Anomaly, WasteBarrel, WasteRecord, TransferManifest, DispenseRecord, BorrowRequest])],
   controllers: [DashboardController],
 })
 export class DashboardModule {}

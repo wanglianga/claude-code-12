@@ -12,11 +12,12 @@ import {
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ArrayMinSize } from 'class-validator';
-import { Anomaly, Requisition, TransferManifest, WasteBarrel, WasteRecord } from '../common/entities';
+import { Anomaly, BorrowRequest, Requisition, TransferManifest, WasteBarrel, WasteRecord } from '../common/entities';
 import { CurrentUser, Roles } from '../common/auth';
 import {
   AnomalyType,
   BARREL_WARN_RATIO,
+  BorrowStatus,
   ManifestStatus,
   ReqStatus,
   Role,
@@ -57,6 +58,7 @@ export class WasteController {
     @InjectRepository(WasteRecord) private records: Repository<WasteRecord>,
     @InjectRepository(TransferManifest) private manifests: Repository<TransferManifest>,
     @InjectRepository(Requisition) private reqs: Repository<Requisition>,
+    @InjectRepository(BorrowRequest) private borrows: Repository<BorrowRequest>,
     @InjectRepository(Anomaly) private anomalies: Repository<Anomaly>,
     private dataSource: DataSource,
   ) {}
@@ -116,6 +118,21 @@ export class WasteController {
         storedByName: me.name,
         status: WasteStatus.STORED,
       });
+
+      // ===== 跨组借用：废液责任拆回实际使用项目（借入方课题组），防止借用记录与废液记录分离 =====
+      let linkedBorrow: BorrowRequest | null = null;
+      if (req.sourceType === 'BORROW' && req.borrowId) {
+        linkedBorrow = await em.getRepository(BorrowRequest).findOne({ where: { id: req.borrowId } });
+        if (linkedBorrow) {
+          record.sourceType = 'BORROW';
+          record.borrowId = linkedBorrow.id;
+          record.responsibleGroupName = linkedBorrow.borrowerGroup; // 实际使用课题组承担废液责任
+          record.sourceGroupName = linkedBorrow.lenderGroup; // 试剂来源课题组仅留痕，不承担废液
+        }
+      } else {
+        record.responsibleGroupName = req.researchGroup;
+        record.sourceGroupName = req.researchGroup;
+      }
       await em.getRepository(WasteRecord).save(record);
 
       barrel.currentAmount = +(barrel.currentAmount + dto.amount).toFixed(2);
@@ -145,6 +162,12 @@ export class WasteController {
 
       req.status = ReqStatus.WASTE_STORED;
       await em.getRepository(Requisition).save(req);
+
+      // 借用单同步：废液已拆回实际使用项目（借入方课题组），等待安全员复盘闭环
+      if (linkedBorrow) {
+        linkedBorrow.status = BorrowStatus.WASTE_ASSIGNED;
+        await em.getRepository(BorrowRequest).save(linkedBorrow);
+      }
       return record;
     });
   }
@@ -245,7 +268,7 @@ export class WasteController {
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([WasteBarrel, WasteRecord, TransferManifest, Requisition, Anomaly])],
+  imports: [TypeOrmModule.forFeature([WasteBarrel, WasteRecord, TransferManifest, Requisition, BorrowRequest, Anomaly])],
   controllers: [WasteController],
 })
 export class WasteModule {}

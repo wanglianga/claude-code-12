@@ -142,12 +142,18 @@ export class RequisitionsController {
 
   // ---------- 列表（按角色过滤） ----------
   @Get()
-  async list(@CurrentUser() me: any, @Query('status') status?: string) {
+  async list(@CurrentUser() me: any, @Query('status') status?: string, @Query('source') source?: string) {
     const where: any = {};
     if (me.role === Role.STUDENT) where.studentId = me.sub;
     if (me.role === Role.ADVISOR) where.advisorId = me.sub;
     if (status) where.status = status;
-    return this.reqs.find({ where, order: { createdAt: 'DESC' } });
+    if (source === 'NORMAL') where.sourceType = 'NORMAL'; // 借用台账单独在「试剂借用」菜单查看
+    const list = await this.reqs.find({ where, order: { createdAt: 'DESC' } });
+    if (!source && me.role === Role.STUDENT) {
+      // 学生默认列表不混入跨组借用自动生成的使用单（其使用/废液入口在借用详情）
+      return list.filter((r) => r.sourceType !== 'BORROW');
+    }
+    return list;
   }
 
   @Get(':id')
@@ -183,6 +189,7 @@ export class RequisitionsController {
   async advisorDecision(@Param('id') id: string, @Body() dto: AdvisorDecisionDto, @CurrentUser() me: any) {
     const req = await this.getReq(id);
     if (req.status !== ReqStatus.PENDING_ADVISOR) throw new BadRequestException('当前状态不可导师审批');
+    if (req.sourceType === 'BORROW') throw new BadRequestException('跨组借用单请在「试剂借用」中完成双方导师审批');
     if (me.role === Role.ADVISOR && req.advisorId !== me.sub) throw new ForbiddenException('仅该申请的导师可审批');
     await this.approvals.save(
       this.approvals.create({
@@ -205,6 +212,7 @@ export class RequisitionsController {
   async safetyDecision(@Param('id') id: string, @Body() dto: SafetyDecisionDto, @CurrentUser() me: any) {
     const req = await this.getReq(id);
     if (req.status !== ReqStatus.PENDING_SAFETY) throw new BadRequestException('当前状态不可安全员审批');
+    if (req.sourceType === 'BORROW') throw new BadRequestException('跨组借用单的路线审批请在「试剂借用」中完成');
 
     if (dto.approve) {
       const ck = dto.checklist || {};
@@ -255,6 +263,7 @@ export class RequisitionsController {
       const req = await em.getRepository(Requisition).findOne({ where: { id } });
       if (!req) throw new NotFoundException('申请不存在');
       if (req.status !== ReqStatus.APPROVED) throw new BadRequestException('当前状态不可出库');
+      if (req.sourceType === 'BORROW') throw new BadRequestException('跨组借用的发放请使用「试剂借用」的组间余流发放');
       if (req.requiresDualPickup && !dto.secondPickerName?.trim()) {
         throw new BadRequestException('该试剂属于易制毒/易制爆/剧毒类，必须双人领取');
       }
@@ -305,6 +314,7 @@ export class RequisitionsController {
   async logUsage(@Param('id') id: string, @Body() dto: UsageDto, @CurrentUser() me: any) {
     const req = await this.getReq(id);
     if (req.studentId !== me.sub) throw new ForbiddenException('仅申请人本人可登记');
+    if (req.sourceType === 'BORROW') throw new BadRequestException('跨组借用试剂请在「试剂借用」详情中登记实际使用');
     if (![ReqStatus.IN_USE, ReqStatus.USAGE_LOGGED].includes(req.status as ReqStatus)) {
       throw new BadRequestException('当前状态不可登记使用');
     }

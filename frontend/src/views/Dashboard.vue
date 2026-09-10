@@ -42,6 +42,31 @@
       </el-table>
     </el-card>
 
+    <el-card v-if="reviewBoard && ['safety_officer', 'admin'].includes(store.role)" class="page-card">
+      <template #header>
+        <div class="toolbar" style="margin: 0">
+          <b>跨组借用风险复盘（判断风险来自借用本身 / 转移过程 / 实际使用）</b>
+          <el-button size="small" link type="primary" @click="$router.push('/borrows')">进入借用中心</el-button>
+        </div>
+      </template>
+      <el-row :gutter="12">
+        <el-col v-for="src in reviewBoard.sources" :key="src.source" :span="8">
+          <div class="risk-source-box">
+            <div class="risk-source-title">
+              <el-tag :type="src.source === '借用本身' ? 'danger' : src.source === '转移过程' ? 'warning' : 'success'">{{ src.source }}</el-tag>
+              <span class="muted">风险事件 {{ src.total }}（待处理 {{ src.open }}）</span>
+            </div>
+            <div v-for="e in src.events.slice(0, 3)" :key="e.id" class="risk-event">
+              <el-tag size="small" :type="e.status === 'OPEN' ? 'danger' : 'success'">{{ e.status === 'OPEN' ? '待处理' : '已处理' }}</el-tag>
+              <span class="risk-event-text">{{ e.description }}</span>
+              <el-button v-if="e.borrowId" size="small" link type="primary" @click="$router.push(`/borrows/${e.borrowId}`)">借用单</el-button>
+            </div>
+            <div v-if="!src.events.length" class="muted">暂无该来源风险事件</div>
+          </div>
+        </el-col>
+      </el-row>
+    </el-card>
+
     <el-card v-if="anomalies.length" class="page-card">
       <template #header><b>最新未处理异常</b></template>
       <el-table :data="anomalies" size="small">
@@ -56,7 +81,8 @@
         </el-table-column>
         <el-table-column label="操作" width="100">
           <template #default="{ row }">
-            <el-button v-if="row.requisitionId" size="small" link type="primary" @click="$router.push(`/requisitions/${row.requisitionId}`)">查看链路</el-button>
+            <el-button v-if="row.borrowId" size="small" link type="warning" @click="$router.push(`/borrows/${row.borrowId}`)">借用单</el-button>
+            <el-button v-else-if="row.requisitionId" size="small" link type="primary" @click="$router.push(`/requisitions/${row.requisitionId}`)">查看链路</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -74,6 +100,7 @@ const store = useAuthStore()
 const summary = ref<any>({})
 const resp = ref<any[]>([])
 const anomalies = ref<any[]>([])
+const reviewBoard = ref<any>(null)
 const dim = ref('college')
 
 const cards = computed(() => {
@@ -83,20 +110,26 @@ const cards = computed(() => {
   if (role === 'student') {
     list.push({ label: '我的申请', value: s.myTotal ?? '-', color: '#409eff' })
     list.push({ label: '进行中', value: s.myInProgress ?? '-', color: '#e6a23c' })
+    list.push({ label: '我的借用', value: s.myBorrow ?? '-', color: '#b37feb' })
   }
-  if (role === 'advisor') list.push({ label: '待我审批', value: s.pendingAdvisor ?? '-', color: '#e6a23c' })
+  if (role === 'advisor') list.push({ label: '待我审批', value: (s.pendingAdvisor ?? 0) + (s.pendingBorrowAdvisor ?? 0), color: '#e6a23c' })
   if (role === 'safety_officer' || role === 'admin') {
     list.push({ label: '待安全审批', value: s.pendingSafety ?? '-', color: '#e6a23c' })
+    list.push({ label: '借用待定路线', value: s.pendingBorrowSafety ?? '-', color: '#b37feb' })
+    list.push({ label: '借用待复盘', value: s.pendingBorrowReview ?? '-', color: '#ff85c0' })
     list.push({ label: '未处理异常', value: s.openAnomalies ?? '-', color: '#f56c6c' })
   }
   if (role === 'warehouse_manager' || role === 'admin') {
     list.push({ label: '待出库', value: s.approvedToDispense ?? '-', color: '#409eff' })
+    list.push({ label: '借用待发放', value: s.pendingBorrowDispense ?? '-', color: '#b37feb' })
+    list.push({ label: '借用待交接', value: s.pendingBorrowHandover ?? '-', color: '#ff85c0' })
     list.push({ label: '库存废液记录', value: s.storedWasteRecords ?? '-', color: '#909399' })
     list.push({ label: '液位预警桶', value: s.barrelsWarn ?? '-', color: '#f56c6c' })
   }
   if (role === 'college_admin') list.push({ label: '待审核转运单', value: s.pendingManifests ?? '-', color: '#e6a23c' })
   list.push({ label: '使用中申请', value: s.inUse ?? '-', color: '#67c23a' })
   list.push({ label: '已闭环申请', value: s.closed ?? '-', color: '#2c5f8a' })
+  list.push({ label: '借用已闭环', value: s.borrowClosed ?? '-', color: '#722ed1' })
   return list
 })
 
@@ -111,6 +144,13 @@ onMounted(async () => {
     anomalies.value = (await api.get('/anomalies', { params: { status: 'OPEN' } })).slice(0, 5)
   } catch {
     anomalies.value = []
+  }
+  if (['safety_officer', 'admin'].includes(store.role)) {
+    try {
+      reviewBoard.value = await api.get('/borrow/review-board')
+    } catch {
+      reviewBoard.value = null
+    }
   }
 })
 </script>

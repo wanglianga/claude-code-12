@@ -5,6 +5,7 @@ import { UsersModule } from './modules/users.module';
 import { CatalogModule } from './modules/catalog.module';
 import { InventoryModule } from './modules/inventory.module';
 import { RequisitionsModule } from './modules/requisitions.module';
+import { BorrowModule } from './modules/borrow.module';
 import { WasteModule } from './modules/waste.module';
 import { AnomaliesModule } from './modules/anomalies.module';
 import { DashboardModule } from './modules/dashboard.module';
@@ -37,6 +38,7 @@ export class HealthController {
     CatalogModule,
     InventoryModule,
     RequisitionsModule,
+    BorrowModule,
     WasteModule,
     AnomaliesModule,
     DashboardModule,

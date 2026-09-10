@@ -10,7 +10,12 @@
         <el-button v-if="store.role === 'student'" type="primary" :icon="Plus" @click="$router.push('/requisitions/new')">新建领用申请</el-button>
       </div>
       <el-table :data="list" size="small" border v-loading="loading">
-        <el-table-column prop="reqNo" label="申请单号" width="160" />
+        <el-table-column prop="reqNo" label="申请单号" width="175">
+          <template #default="{ row }">
+            {{ row.reqNo }}
+            <el-tag v-if="row.sourceType === 'BORROW'" size="small" type="warning" style="margin-left: 2px">借用</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="reagentName" label="试剂" width="100" />
         <el-table-column label="危险类别" min-width="150">
           <template #default="{ row }">

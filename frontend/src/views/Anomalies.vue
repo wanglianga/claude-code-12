@@ -33,9 +33,10 @@
         <el-table-column label="时间" width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.requisitionId" size="small" link type="primary" @click="openChain(row)">查看链路</el-button>
+            <el-button v-if="row.borrowId" size="small" link type="warning" @click="$router.push(`/borrows/${row.borrowId}`)">借用链路</el-button>
+            <el-button v-else-if="row.requisitionId" size="small" link type="primary" @click="openChain(row)">查看链路</el-button>
             <el-button v-if="row.status === 'OPEN' && canResolve" size="small" type="primary" @click="resolve(row)">处理</el-button>
           </template>
         </el-table-column>
